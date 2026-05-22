@@ -1,0 +1,7 @@
+---
+- name: Liftoff — Deploy XTM stack (OpenCTI + OpenAEV)
+  hosts: xtm_servers
+  become: true
+  roles:
+    - docker
+    - xtm_deploy

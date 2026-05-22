@@ -1,0 +1,134 @@
+---
+# xtm_deploy role — copies docker-compose files and brings up the XTM stack.
+# Secrets (.env) are generated once on first deploy and never overwritten.
+
+- name: Ensure deploy directory exists
+  ansible.builtin.file:
+    path: "{{ xtm_deploy_dir }}"
+    state: directory
+    owner: root
+    group: docker
+    mode: "0750"
+
+- name: Copy docker-compose.yml
+  ansible.builtin.copy:
+    src: docker-compose.yml
+    dest: "{{ xtm_deploy_dir }}/docker-compose.yml"
+    owner: root
+    group: docker
+    mode: "0640"
+
+- name: Copy rabbitmq.conf
+  ansible.builtin.copy:
+    src: rabbitmq.conf
+    dest: "{{ xtm_deploy_dir }}/rabbitmq.conf"
+    owner: root
+    group: docker
+    mode: "0640"
+
+# ─── Secret generation (run only if .env does not yet exist) ─────────────────
+
+- name: Check if .env already exists
+  ansible.builtin.stat:
+    path: "{{ xtm_deploy_dir }}/.env"
+  register: env_file
+
+- name: Generate secrets (first-time setup only)
+  when: not env_file.stat.exists
+  block:
+    - name: Generate UUIDs
+      ansible.builtin.command: uuidgen
+      register: _uuid
+      changed_when: false
+      loop:
+        - xtm_composer_id
+        - opencti_admin_token
+        - opencti_healthcheck_key
+        - connector_export_file_stix_id
+        - connector_export_file_csv_id
+        - connector_export_file_txt_id
+        - connector_import_file_stix_id
+        - connector_import_document_id
+        - connector_import_file_yara_id
+        - connector_import_external_reference_id
+        - connector_analysis_id
+        - connector_opencti_id
+        - connector_mitre_id
+        - openaev_admin_token
+        - collector_mitre_attack_id
+        - collector_openaev_id
+        - collector_atomic_red_team_id
+        - collector_nvd_nist_cve_id
+        - injector_nmap_id
+        - injector_nuclei_id
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Map UUID results to a dictionary
+      ansible.builtin.set_fact:
+        _uuids: "{{ _uuids | default({}) | combine({item.item: item.stdout | trim}) }}"
+      loop: "{{ _uuid.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Generate random passwords (base64, 32 bytes)
+      ansible.builtin.shell: "openssl rand -base64 32 | tr -d '\\n/+=' | cut -c1-32"
+      register: _pw
+      changed_when: false
+      loop:
+        - minio_root_password
+        - rabbitmq_default_pass
+        - postgres_password
+        - opensearch_admin_password
+        - opencti_admin_password
+        - openaev_admin_password
+        - openaev_healthcheck_key
+        - openaev_admin_encryption_salt
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Map password results to a dictionary
+      ansible.builtin.set_fact:
+        _passwords: "{{ _passwords | default({}) | combine({item.item: item.stdout | trim}) }}"
+      loop: "{{ _pw.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Generate OpenCTI encryption key (base64, 32 bytes)
+      ansible.builtin.command: openssl rand -base64 32
+      register: _opencti_enc_key
+      changed_when: false
+
+    - name: Generate OpenAEV encryption key (base64, 32 bytes)
+      ansible.builtin.command: openssl rand -base64 32
+      register: _openaev_enc_key
+      changed_when: false
+
+    - name: Write .env file from template
+      ansible.builtin.template:
+        src: env.j2
+        dest: "{{ xtm_deploy_dir }}/.env"
+        owner: root
+        group: docker
+        mode: "0640"
+      vars:
+        uuids: "{{ _uuids }}"
+        passwords: "{{ _passwords }}"
+        opencti_encryption_key: "{{ _opencti_enc_key.stdout | trim }}"
+        openaev_encryption_key: "{{ _openaev_enc_key.stdout | trim }}"
+
+# ─── Docker Compose ───────────────────────────────────────────────────────────
+
+- name: Pull latest images
+  ansible.builtin.command:
+    cmd: docker compose pull
+    chdir: "{{ xtm_deploy_dir }}"
+  register: compose_pull
+  changed_when: "'Pulled' in compose_pull.stdout or 'pulled' in compose_pull.stderr"
+
+- name: Bring up XTM stack
+  ansible.builtin.command:
+    cmd: docker compose up -d --remove-orphans
+    chdir: "{{ xtm_deploy_dir }}"
+  register: compose_up
+  changed_when: "'Started' in compose_up.stderr or 'Created' in compose_up.stderr"

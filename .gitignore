@@ -1,0 +1,4 @@
+*.retry
+.env
+inventory/hosts.yml
+!inventory/hosts.yml.example

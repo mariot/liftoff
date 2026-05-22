@@ -1,0 +1,43 @@
+---
+# Deployment directory on the target server
+xtm_deploy_dir: /opt/xtm
+
+# ─── OpenCTI ──────────────────────────────────────────────────────────────────
+opencti_host: "{{ ansible_default_ipv4.address }}"
+opencti_port: 8080
+opencti_external_scheme: http
+opencti_admin_email: admin@opencti.io
+
+# ─── OpenAEV ──────────────────────────────────────────────────────────────────
+openaev_host: "{{ ansible_default_ipv4.address }}"
+openaev_port: 8081
+openaev_external_scheme: http
+openaev_admin_email: admin@openaev.io
+
+# ─── Infrastructure ───────────────────────────────────────────────────────────
+elastic_memory_size: 4G
+minio_root_user: opencti
+rabbitmq_user: xtmrabbit
+postgres_user: xtmpgsql
+
+# ─── SMTP (outgoing mail) ─────────────────────────────────────────────────────
+smtp_host: smtp.gmail.com
+smtp_port: 587
+smtp_username: ""
+smtp_password: ""
+smtp_auth: "true"
+smtp_ssl_enable: "true"
+smtp_starttls_enable: "false"
+
+# ─── IMAP (incoming mail for OpenAEV) ────────────────────────────────────────
+openaev_mail_imap_enabled: "false"
+imap_host: imap.changeme.com
+imap_port: 993
+imap_username: ""
+imap_password: ""
+imap_auth: "true"
+imap_ssl_enable: "true"
+imap_starttls_enable: "false"
+
+# ─── Optional API keys ────────────────────────────────────────────────────────
+collector_nvd_nist_cve_api_key: ""
