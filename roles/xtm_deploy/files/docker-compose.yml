@@ -126,7 +126,7 @@ services:
       - OPENCTI__DAEMON__SELECTOR=docker
       - OPENCTI__DAEMON__DOCKER__NETWORK_MODE=${COMPOSE_PROJECT_NAME}_default
       - OPENAEV__ENABLE=true
-      - OPENAEV__URL=http://openaev:8080
+      - OPENAEV__URL=http://openaev:8081
       - OPENAEV__TOKEN=${OPENAEV_ADMIN_TOKEN}
       - OPENAEV__DAEMON__SELECTOR=docker
       - OPENAEV__DAEMON__DOCKER__NETWORK_MODE=${COMPOSE_PROJECT_NAME}_default
@@ -326,7 +326,7 @@ services:
     restart: always
     depends_on:
       opencti:
-        condition: service_healthy          
+        condition: service_healthy
 
   ###########################
   # OPENCTI DEFAULT DATA    #
@@ -338,14 +338,14 @@ services:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
       - CONNECTOR_ID=${CONNECTOR_OPENCTI_ID}
-      - "CONNECTOR_NAME=OpenCTI Datasets"
+      - CONNECTOR_NAME="OpenCTI Datasets"
       - CONNECTOR_SCOPE=marking-definition,identity,location
       - CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT=true
       - CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT_CONFIDENCE_LEVEL=100
     restart: always
     depends_on:
       opencti:
-        condition: service_healthy      
+        condition: service_healthy
   connector-mitre:
     image: opencti/connector-mitre:latest
     environment:
@@ -353,11 +353,11 @@ services:
       - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
       - CONNECTOR_ID=${CONNECTOR_MITRE_ID}
       - CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT=true
-      - CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT_CONFIDENCE_LEVEL=75      
+      - CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT_CONFIDENCE_LEVEL=75
     restart: always
     depends_on:
       opencti:
-        condition: service_healthy    
+        condition: service_healthy
 
   ###########################
   # OPENAEV                 #
@@ -432,10 +432,10 @@ services:
   collector-mitre-attack:
     image: openaev/collector-mitre-attack:latest
     environment:
-      - OPENAEV_URL=http://openaev:8080
+      - OPENAEV_URL=http://openaev:8081
       - OPENAEV_TOKEN=${OPENAEV_ADMIN_TOKEN}
       - COLLECTOR_ID=${COLLECTOR_MITRE_ATTACK_ID} # Valid UUIDv4
-      - "COLLECTOR_NAME=MITRE ATT&CK"
+      - COLLECTOR_NAME="MITRE ATT&CK"
     depends_on:
       openaev:
         condition: service_healthy
@@ -443,10 +443,10 @@ services:
   collector-openaev:
     image: openaev/collector-openaev:latest
     environment:
-      - OPENAEV_URL=http://openaev:8080
+      - OPENAEV_URL=http://openaev:8081
       - OPENAEV_TOKEN=${OPENAEV_ADMIN_TOKEN}
       - COLLECTOR_ID=${COLLECTOR_OPENAEV_ID} # Valid UUIDv4
-      - "COLLECTOR_NAME=OpenAEV Datasets"
+      - COLLECTOR_NAME="OpenAEV Datasets"
     depends_on:
       openaev:
         condition: service_healthy
@@ -454,7 +454,7 @@ services:
   collector-atomic-red-team:
     image: openaev/collector-atomic-red-team:latest
     environment:
-      - OPENAEV_URL=http://openaev:8080
+      - OPENAEV_URL=http://openaev:8081
       - OPENAEV_TOKEN=${OPENAEV_ADMIN_TOKEN}
       - COLLECTOR_ID=${COLLECTOR_ATOMIC_RED_TEAM_ID} # Valid UUIDv4
       - "COLLECTOR_NAME=Atomic Red Team"
@@ -465,11 +465,11 @@ services:
   collector-nvd-nist-cve:
     image: openaev/collector-nvd-nist-cve:latest
     environment:
-      - OPENAEV_URL=http://openaev:8080
+      - OPENAEV_URL=http://openaev:8081
       - OPENAEV_TOKEN=${OPENAEV_ADMIN_TOKEN}
       - COLLECTOR_ID=${COLLECTOR_NVD_NIST_CVE_ID} # Valid UUIDv4
       - NVD_NIST_CVE_API_KEY=${COLLECTOR_NVD_NIST_CVE_API_KEY}
-      - "COLLECTOR_NAME=CVE by NVD NIST"
+      - COLLECTOR_NAME="CVE by NVD NIST"
     depends_on:
       openaev:
         condition: service_healthy
@@ -482,10 +482,10 @@ services:
   injector-nmap:
     image: openaev/injector-nmap:latest
     environment:
-      - OPENAEV_URL=http://openaev:8080
+      - OPENAEV_URL=http://openaev:8081
       - OPENAEV_TOKEN=${OPENAEV_ADMIN_TOKEN}
       - INJECTOR_ID=${INJECTOR_NMAP_ID} # Valid UUIDv4
-      - "INJECTOR_NAME=Nmap"
+      - INJECTOR_NAME=Nmap
     depends_on:
       openaev:
         condition: service_healthy
@@ -493,10 +493,10 @@ services:
   injector-nuclei:
     image: openaev/injector-nuclei:latest
     environment:
-      - OPENAEV_URL=http://openaev:8080
+      - OPENAEV_URL=http://openaev:8081
       - OPENAEV_TOKEN=${OPENAEV_ADMIN_TOKEN}
       - INJECTOR_ID=${INJECTOR_NUCLEI_ID} # Valid UUIDv4
-      - "INJECTOR_NAME=Nuclei"
+      - INJECTOR_NAME=Nuclei
     depends_on:
       openaev:
         condition: service_healthy
