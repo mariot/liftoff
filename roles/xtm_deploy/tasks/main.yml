@@ -36,73 +36,45 @@
 - name: Generate secrets (first-time setup only)
   when: not env_file.stat.exists
   block:
-    - name: Generate UUIDs
-      ansible.builtin.command: uuidgen
-      register: _uuid
-      changed_when: false
-      loop:
-        - xtm_composer_id
-        - opencti_admin_token
-        - opencti_healthcheck_key
-        - connector_export_file_stix_id
-        - connector_export_file_csv_id
-        - connector_export_file_txt_id
-        - connector_import_file_stix_id
-        - connector_import_document_id
-        - connector_import_file_yara_id
-        - connector_import_external_reference_id
-        - connector_analysis_id
-        - connector_opencti_id
-        - connector_mitre_id
-        - openaev_admin_token
-        - collector_mitre_attack_id
-        - collector_openaev_id
-        - collector_atomic_red_team_id
-        - collector_nvd_nist_cve_id
-        - injector_nmap_id
-        - injector_nuclei_id
-      loop_control:
-        label: "{{ item }}"
-
-    - name: Map UUID results to a dictionary
+    # All generation runs on the control node via Python 3 (always available
+    # since Ansible itself requires it) — no uuidgen/openssl needed on the target.
+    - name: Generate all UUIDs and secrets on the control node
       ansible.builtin.set_fact:
-        _uuids: "{{ _uuids | default({}) | combine({item.item: item.stdout | trim}) }}"
-      loop: "{{ _uuid.results }}"
-      loop_control:
-        label: "{{ item.item }}"
-
-    - name: Generate random passwords (base64, 32 bytes)
-      ansible.builtin.shell: "openssl rand -base64 32 | tr -d '\\n/+=' | cut -c1-32"
-      register: _pw
-      changed_when: false
-      loop:
-        - minio_root_password
-        - rabbitmq_default_pass
-        - postgres_password
-        - opensearch_admin_password
-        - opencti_admin_password
-        - openaev_admin_password
-        - openaev_healthcheck_key
-        - openaev_admin_encryption_salt
-      loop_control:
-        label: "{{ item }}"
-
-    - name: Map password results to a dictionary
-      ansible.builtin.set_fact:
-        _passwords: "{{ _passwords | default({}) | combine({item.item: item.stdout | trim}) }}"
-      loop: "{{ _pw.results }}"
-      loop_control:
-        label: "{{ item.item }}"
-
-    - name: Generate OpenCTI encryption key (base64, 32 bytes)
-      ansible.builtin.command: openssl rand -base64 32
-      register: _opencti_enc_key
-      changed_when: false
-
-    - name: Generate OpenAEV encryption key (base64, 32 bytes)
-      ansible.builtin.command: openssl rand -base64 32
-      register: _openaev_enc_key
-      changed_when: false
+        _uuids:
+          xtm_composer_id:                     "{{ lookup('pipe', _uuid_cmd) }}"
+          opencti_admin_token:                 "{{ lookup('pipe', _uuid_cmd) }}"
+          opencti_healthcheck_key:             "{{ lookup('pipe', _uuid_cmd) }}"
+          connector_export_file_stix_id:       "{{ lookup('pipe', _uuid_cmd) }}"
+          connector_export_file_csv_id:        "{{ lookup('pipe', _uuid_cmd) }}"
+          connector_export_file_txt_id:        "{{ lookup('pipe', _uuid_cmd) }}"
+          connector_import_file_stix_id:       "{{ lookup('pipe', _uuid_cmd) }}"
+          connector_import_document_id:        "{{ lookup('pipe', _uuid_cmd) }}"
+          connector_import_file_yara_id:       "{{ lookup('pipe', _uuid_cmd) }}"
+          connector_import_external_reference_id: "{{ lookup('pipe', _uuid_cmd) }}"
+          connector_analysis_id:               "{{ lookup('pipe', _uuid_cmd) }}"
+          connector_opencti_id:                "{{ lookup('pipe', _uuid_cmd) }}"
+          connector_mitre_id:                  "{{ lookup('pipe', _uuid_cmd) }}"
+          openaev_admin_token:                 "{{ lookup('pipe', _uuid_cmd) }}"
+          collector_mitre_attack_id:           "{{ lookup('pipe', _uuid_cmd) }}"
+          collector_openaev_id:                "{{ lookup('pipe', _uuid_cmd) }}"
+          collector_atomic_red_team_id:        "{{ lookup('pipe', _uuid_cmd) }}"
+          collector_nvd_nist_cve_id:           "{{ lookup('pipe', _uuid_cmd) }}"
+          injector_nmap_id:                    "{{ lookup('pipe', _uuid_cmd) }}"
+          injector_nuclei_id:                  "{{ lookup('pipe', _uuid_cmd) }}"
+        _passwords:
+          minio_root_password:          "{{ lookup('password', '/dev/null', length=32, chars=['ascii_letters', 'digits']) }}"
+          rabbitmq_default_pass:        "{{ lookup('password', '/dev/null', length=32, chars=['ascii_letters', 'digits']) }}"
+          postgres_password:            "{{ lookup('password', '/dev/null', length=32, chars=['ascii_letters', 'digits']) }}"
+          opensearch_admin_password:    "{{ lookup('password', '/dev/null', length=32, chars=['ascii_letters', 'digits']) }}"
+          opencti_admin_password:       "{{ lookup('password', '/dev/null', length=32, chars=['ascii_letters', 'digits']) }}"
+          openaev_admin_password:       "{{ lookup('password', '/dev/null', length=32, chars=['ascii_letters', 'digits']) }}"
+          openaev_healthcheck_key:      "{{ lookup('password', '/dev/null', length=32, chars=['ascii_letters', 'digits']) }}"
+          openaev_admin_encryption_salt: "{{ lookup('password', '/dev/null', length=16, chars=['ascii_letters', 'digits']) }}"
+        _opencti_encryption_key: "{{ lookup('pipe', _b64key_cmd) }}"
+        _openaev_encryption_key:  "{{ lookup('pipe', _b64key_cmd) }}"
+      vars:
+        _uuid_cmd: "python3 -c 'import uuid; print(uuid.uuid4())'"
+        _b64key_cmd: "python3 -c 'import secrets,base64; print(base64.b64encode(secrets.token_bytes(32)).decode())'"
 
     - name: Write .env file from template
       ansible.builtin.template:
@@ -114,8 +86,8 @@
       vars:
         uuids: "{{ _uuids }}"
         passwords: "{{ _passwords }}"
-        opencti_encryption_key: "{{ _opencti_enc_key.stdout | trim }}"
-        openaev_encryption_key: "{{ _openaev_enc_key.stdout | trim }}"
+        opencti_encryption_key: "{{ _opencti_encryption_key }}"
+        openaev_encryption_key: "{{ _openaev_encryption_key }}"
 
 # ─── Docker Compose ───────────────────────────────────────────────────────────
 
