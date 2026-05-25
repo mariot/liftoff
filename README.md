@@ -55,8 +55,7 @@ liftoff/
     └── xtm_deploy/                 # Deploys the XTM stack
         ├── tasks/main.yml
         ├── files/
-        │   ├── docker-compose.yml  # Stack definition (sourced from xtm-docker — do not edit)
-        │   └── rabbitmq.conf       # RabbitMQ config  (sourced from xtm-docker — do not edit)
+        │   └── docker-compose.yml  # Stack definition (sourced from xtm-docker — do not edit)
         └── templates/
             └── env.j2              # .env template (secrets injected at deploy time)
 ```
@@ -102,6 +101,10 @@ Generated credentials are stored in `/opt/xtm/.env` on the server.
 
 [Multipass](https://multipass.run) spins up lightweight Ubuntu VMs on macOS (or Linux/Windows) — ideal for testing this playbook without a cloud server.
 
+This project uses direct IP:port access in local testing (no Traefik/Nginx required):
+- OpenCTI: `http://<multipass-ip>:8080`
+- OpenAEV: `http://<multipass-ip>:8081`
+
 ### 1. Install Multipass
 
 ```bash
@@ -111,8 +114,10 @@ brew install --cask multipass
 ### 2. Launch a VM
 
 ```bash
-multipass launch --name xtm-test --cpus 4 --memory 10G --disk 50G
+multipass launch --name xtm-test --cpus 4 --memory 10G --disk 50G lts
 ```
+
+Using `lts` keeps the VM on the latest Ubuntu LTS image available in Multipass.
 
 > Elasticsearch requires at least 4 GB JVM heap plus overhead. 10 GB total is a safe minimum for the full stack.
 
@@ -159,12 +164,42 @@ The first run takes several minutes — Docker images are large. Subsequent runs
 
 Use the Multipass VM IP in your browser:
 
-```
+```text
 http://<multipass-ip>:8080   → OpenCTI
 http://<multipass-ip>:8081   → OpenAEV
 ```
 
-### 7. Tear down
+Quick connectivity checks from your Mac:
+
+```bash
+curl -I http://<multipass-ip>:8080
+curl -I http://<multipass-ip>:8081
+```
+
+### 7. Useful Multipass commands
+
+```bash
+# List instances
+multipass list
+
+# Show detailed VM info (including IPv4)
+multipass info xtm-test
+
+# Open a shell in the VM
+multipass shell xtm-test
+
+# Run one command in the VM
+multipass exec xtm-test -- docker ps
+
+# Stop/start/restart VM
+multipass stop xtm-test
+multipass start xtm-test
+multipass restart xtm-test
+```
+
+If the VM IP changes after restart, update `ansible_host` in `inventory/hosts.yml` and re-run the playbook.
+
+### 8. Tear down
 
 ```bash
 multipass delete xtm-test && multipass purge

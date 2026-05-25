@@ -65,7 +65,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: openaev
     volumes:
-      - pgsqldata:/var/lib/postgresql/data
+      - pgsqldata:/var/lib/postgresql  # postgres 18+ stores data in a major-version subdirectory; mount parent dir
     restart: always
     healthcheck:
       test: [ "CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "openaev" ]
@@ -98,9 +98,6 @@ services:
       - "5672:5672"
       - "15672:15672"      
     volumes:
-      - type: bind
-        source: ./rabbitmq.conf
-        target: /etc/rabbitmq/rabbitmq.conf 
       - amqpdata:/var/lib/rabbitmq
     restart: always
     healthcheck:
@@ -115,7 +112,7 @@ services:
 
   xtm-composer:
     image: filigran/xtm-composer:latest
-    platform: linux/amd64
+    platform: linux/amd64  # no arm64 image published
     environment:
       - MANAGER__ID=${XTM_COMPOSER_ID}
       - MANAGER__NAME=OpenCTI Connector Manager
@@ -126,7 +123,7 @@ services:
       - OPENCTI__DAEMON__SELECTOR=docker
       - OPENCTI__DAEMON__DOCKER__NETWORK_MODE=${COMPOSE_PROJECT_NAME}_default
       - OPENAEV__ENABLE=true
-      - OPENAEV__URL=http://openaev:8081
+      - OPENAEV__URL=http://openaev:8080
       - OPENAEV__TOKEN=${OPENAEV_ADMIN_TOKEN}
       - OPENAEV__DAEMON__SELECTOR=docker
       - OPENAEV__DAEMON__DOCKER__NETWORK_MODE=${COMPOSE_PROJECT_NAME}_default
@@ -199,6 +196,7 @@ services:
       retries: 20
   worker:
     image: opencti/worker:latest
+    platform: linux/amd64  # no arm64 image published
     environment:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
@@ -216,6 +214,7 @@ services:
 
   connector-export-file-stix:
     image: opencti/connector-export-file-stix:latest
+    platform: linux/amd64  # no arm64 image published
     environment:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
@@ -229,6 +228,7 @@ services:
         condition: service_healthy
   connector-export-file-csv:
     image: opencti/connector-export-file-csv:latest
+    platform: linux/amd64  # no arm64 image published
     environment:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
@@ -242,6 +242,7 @@ services:
         condition: service_healthy
   connector-export-file-txt:
     image: opencti/connector-export-file-txt:latest
+    platform: linux/amd64  # no arm64 image published
     environment:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
@@ -255,6 +256,7 @@ services:
         condition: service_healthy
   connector-import-file-stix:
     image: opencti/connector-import-file-stix:latest
+    platform: linux/amd64  # no arm64 image published
     environment:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
@@ -270,6 +272,7 @@ services:
         condition: service_healthy
   connector-import-document:
     image: opencti/connector-import-document:latest
+    platform: linux/amd64  # no arm64 image published
     environment:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
@@ -287,6 +290,7 @@ services:
         condition: service_healthy
   connector-import-file-yara:
     image: opencti/connector-import-file-yara:latest
+    platform: linux/amd64  # no arm64 image published
     environment:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
@@ -302,6 +306,7 @@ services:
         condition: service_healthy
   connector-analysis:
     image: opencti/connector-import-document:latest
+    platform: linux/amd64  # no arm64 image published
     environment:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
@@ -318,6 +323,7 @@ services:
         condition: service_healthy
   connector-import-external-reference:
     image: opencti/connector-import-external-reference:latest
+    platform: linux/amd64  # no arm64 image published
     environment:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
@@ -334,6 +340,7 @@ services:
 
   connector-opencti:
     image: opencti/connector-opencti:latest
+    platform: linux/amd64  # no arm64 image published
     environment:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
@@ -348,6 +355,7 @@ services:
         condition: service_healthy
   connector-mitre:
     image: opencti/connector-mitre:latest
+    platform: linux/amd64  # no arm64 image published
     environment:
       - OPENCTI_URL=http://opencti:8080
       - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
@@ -408,7 +416,7 @@ services:
       - OPENAEV_XTM_OPENCTI_API_URL=http://opencti:8080
       - OPENAEV_XTM_OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
     ports:
-      - "8081:8080" # If you change the host port (the left one) do not forget to update OPENAEV_BASE-URL in you .env
+      - "${OPENAEV_PORT}:8080" # Host port is configurable; base URL is driven by OPENAEV_* env vars
     depends_on:
       pgsql:
         condition: service_healthy
@@ -431,8 +439,9 @@ services:
 
   collector-mitre-attack:
     image: openaev/collector-mitre-attack:latest
+    platform: linux/amd64  # no arm64 image published
     environment:
-      - OPENAEV_URL=http://openaev:8081
+      - OPENAEV_URL=http://openaev:8080
       - OPENAEV_TOKEN=${OPENAEV_ADMIN_TOKEN}
       - COLLECTOR_ID=${COLLECTOR_MITRE_ATTACK_ID} # Valid UUIDv4
       - COLLECTOR_NAME="MITRE ATT&CK"
@@ -442,8 +451,9 @@ services:
     restart: always
   collector-openaev:
     image: openaev/collector-openaev:latest
+    platform: linux/amd64  # no arm64 image published
     environment:
-      - OPENAEV_URL=http://openaev:8081
+      - OPENAEV_URL=http://openaev:8080
       - OPENAEV_TOKEN=${OPENAEV_ADMIN_TOKEN}
       - COLLECTOR_ID=${COLLECTOR_OPENAEV_ID} # Valid UUIDv4
       - COLLECTOR_NAME="OpenAEV Datasets"
@@ -453,8 +463,9 @@ services:
     restart: always
   collector-atomic-red-team:
     image: openaev/collector-atomic-red-team:latest
+    platform: linux/amd64  # no arm64 image published
     environment:
-      - OPENAEV_URL=http://openaev:8081
+      - OPENAEV_URL=http://openaev:8080
       - OPENAEV_TOKEN=${OPENAEV_ADMIN_TOKEN}
       - COLLECTOR_ID=${COLLECTOR_ATOMIC_RED_TEAM_ID} # Valid UUIDv4
       - "COLLECTOR_NAME=Atomic Red Team"
@@ -464,8 +475,9 @@ services:
     restart: always
   collector-nvd-nist-cve:
     image: openaev/collector-nvd-nist-cve:latest
+    platform: linux/amd64  # no arm64 image published
     environment:
-      - OPENAEV_URL=http://openaev:8081
+      - OPENAEV_URL=http://openaev:8080
       - OPENAEV_TOKEN=${OPENAEV_ADMIN_TOKEN}
       - COLLECTOR_ID=${COLLECTOR_NVD_NIST_CVE_ID} # Valid UUIDv4
       - NVD_NIST_CVE_API_KEY=${COLLECTOR_NVD_NIST_CVE_API_KEY}
@@ -481,8 +493,9 @@ services:
       
   injector-nmap:
     image: openaev/injector-nmap:latest
+    platform: linux/amd64  # no arm64 image published
     environment:
-      - OPENAEV_URL=http://openaev:8081
+      - OPENAEV_URL=http://openaev:8080
       - OPENAEV_TOKEN=${OPENAEV_ADMIN_TOKEN}
       - INJECTOR_ID=${INJECTOR_NMAP_ID} # Valid UUIDv4
       - INJECTOR_NAME=Nmap
@@ -492,8 +505,9 @@ services:
     restart: always
   injector-nuclei:
     image: openaev/injector-nuclei:latest
+    platform: linux/amd64  # no arm64 image published
     environment:
-      - OPENAEV_URL=http://openaev:8081
+      - OPENAEV_URL=http://openaev:8080
       - OPENAEV_TOKEN=${OPENAEV_ADMIN_TOKEN}
       - INJECTOR_ID=${INJECTOR_NUCLEI_ID} # Valid UUIDv4
       - INJECTOR_NAME=Nuclei

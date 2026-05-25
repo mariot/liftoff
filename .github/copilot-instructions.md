@@ -17,7 +17,6 @@ liftoff/
     └── xtm_deploy/                   # Deploys the XTM stack
         ├── tasks/main.yml            # Copies files, generates secrets, runs compose
         ├── files/docker-compose.yml  # Stack definition (do NOT edit — sourced from xtm-docker)
-        ├── files/rabbitmq.conf       # RabbitMQ config (do NOT edit — sourced from xtm-docker)
         └── templates/env.j2          # .env template (all secrets injected at render time)
 ```
 
@@ -31,7 +30,7 @@ liftoff/
 - The `.env` file is written **once** and never overwritten (idempotent — guarded by a `stat` check).
 
 ### Files not to modify
-- `roles/xtm_deploy/files/docker-compose.yml` and `roles/xtm_deploy/files/rabbitmq.conf` are copied verbatim from the upstream `xtm-docker` repo. Update them by re-copying from source, never editing in place.
+- `roles/xtm_deploy/files/docker-compose.yml` is copied from the upstream `xtm-docker` repo. Update it by re-copying from source, never editing in place.
 
 ### Variable naming
 - All user-facing variables live in `group_vars/all.yml` with the prefix matching their domain (`opencti_*`, `openaev_*`, `smtp_*`, `imap_*`).

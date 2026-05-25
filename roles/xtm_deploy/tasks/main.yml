@@ -18,13 +18,6 @@
     group: docker
     mode: "0640"
 
-- name: Copy rabbitmq.conf
-  ansible.builtin.copy:
-    src: rabbitmq.conf
-    dest: "{{ xtm_deploy_dir }}/rabbitmq.conf"
-    owner: root
-    group: docker
-    mode: "0640"
 
 # ─── Secret generation (run only if .env does not yet exist) ─────────────────
 
@@ -104,3 +97,39 @@
     chdir: "{{ xtm_deploy_dir }}"
   register: compose_up
   changed_when: "'Started' in compose_up.stderr or 'Created' in compose_up.stderr"
+  failed_when: false
+
+- name: Read OpenCTI/OpenAEV access values from deployed .env
+  ansible.builtin.command:
+    cmd: >-
+      python3 -c "import json; keys={
+      'OPENCTI_EXTERNAL_SCHEME','OPENCTI_HOST','OPENCTI_PORT','OPENCTI_ADMIN_EMAIL','OPENCTI_ADMIN_PASSWORD',
+      'OPENAEV_EXTERNAL_SCHEME','OPENAEV_HOST','OPENAEV_PORT','OPENAEV_ADMIN_EMAIL','OPENAEV_ADMIN_PASSWORD'};
+      out={};
+      [out.setdefault(k, v) for line in open('{{ xtm_deploy_dir }}/.env', encoding='utf-8')
+      if '=' in line for k, v in [line.rstrip('\n').split('=', 1)] if k in keys];
+      print(json.dumps(out))"
+  register: xtm_access_values_raw
+  changed_when: false
+  no_log: true
+
+- name: Build access info object
+  ansible.builtin.set_fact:
+    xtm_access_values: "{{ xtm_access_values_raw.stdout | from_json }}"
+  no_log: true
+
+- name: Output OpenCTI/OpenAEV access details
+  ansible.builtin.debug:
+    msg:
+      - "OpenCTI URL: {{ xtm_access_values.OPENCTI_EXTERNAL_SCHEME }}://{{ xtm_access_values.OPENCTI_HOST }}:{{ xtm_access_values.OPENCTI_PORT }}"
+      - "OpenCTI Email: {{ xtm_access_values.OPENCTI_ADMIN_EMAIL }}"
+      - "OpenCTI Password: {{ xtm_access_values.OPENCTI_ADMIN_PASSWORD }}"
+      - "OpenAEV URL: {{ xtm_access_values.OPENAEV_EXTERNAL_SCHEME }}://{{ xtm_access_values.OPENAEV_HOST }}:{{ xtm_access_values.OPENAEV_PORT }}"
+      - "OpenAEV Email: {{ xtm_access_values.OPENAEV_ADMIN_EMAIL }}"
+      - "OpenAEV Password: {{ xtm_access_values.OPENAEV_ADMIN_PASSWORD }}"
+
+- name: Fail deploy when docker compose up reports an error
+  ansible.builtin.fail:
+    msg: "docker compose up failed (rc={{ compose_up.rc }}). Check service health with: docker compose ps and docker compose logs"
+  when: compose_up.rc != 0
+
