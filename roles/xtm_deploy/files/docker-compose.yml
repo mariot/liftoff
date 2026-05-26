@@ -353,19 +353,6 @@ services:
     depends_on:
       opencti:
         condition: service_healthy
-  connector-mitre:
-    image: opencti/connector-mitre:latest
-    platform: linux/amd64  # no arm64 image published
-    environment:
-      - OPENCTI_URL=http://opencti:8080
-      - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
-      - CONNECTOR_ID=${CONNECTOR_MITRE_ID}
-      - CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT=true
-      - CONNECTOR_AUTO_CREATE_SERVICE_ACCOUNT_CONFIDENCE_LEVEL=75
-    restart: always
-    depends_on:
-      opencti:
-        condition: service_healthy
 
   ###########################
   # OPENAEV                 #

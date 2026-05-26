@@ -46,7 +46,6 @@
           connector_import_external_reference_id: "{{ lookup('pipe', _uuid_cmd) }}"
           connector_analysis_id:               "{{ lookup('pipe', _uuid_cmd) }}"
           connector_opencti_id:                "{{ lookup('pipe', _uuid_cmd) }}"
-          connector_mitre_id:                  "{{ lookup('pipe', _uuid_cmd) }}"
           openaev_admin_token:                 "{{ lookup('pipe', _uuid_cmd) }}"
           collector_mitre_attack_id:           "{{ lookup('pipe', _uuid_cmd) }}"
           collector_openaev_id:                "{{ lookup('pipe', _uuid_cmd) }}"
