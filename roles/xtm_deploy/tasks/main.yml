@@ -90,6 +90,9 @@
     chdir: "{{ xtm_deploy_dir }}"
   register: compose_pull
   changed_when: "'Pulled' in compose_pull.stdout or 'pulled' in compose_pull.stderr"
+  retries: 3
+  delay: 15
+  until: compose_pull.rc == 0
 
 - name: Bring up XTM stack
   ansible.builtin.command:

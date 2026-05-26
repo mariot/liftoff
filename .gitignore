@@ -2,3 +2,4 @@
 .env
 inventory/hosts.yml
 !inventory/hosts.yml.example
+.idea/
