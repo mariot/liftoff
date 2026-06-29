@@ -115,6 +115,65 @@
     state: present
   when: ansible_os_family == "RedHat"
 
+# ─── ARM64: enable amd64 (x86_64) userspace for running amd64 binaries ───────
+# Adds amd64 dpkg architecture + x86_64 glibc so QEMU user-mode can exec
+# linux/amd64 binaries directly (e.g. Palo Alto Cortex XDR / d1 agent).
+
+- name: Check if amd64 architecture is already registered (ARM64 + Debian only)
+  ansible.builtin.command: dpkg --print-foreign-architectures
+  register: dpkg_foreign_archs
+  changed_when: false
+  failed_when: false
+  when:
+    - ansible_architecture == "aarch64"
+    - ansible_os_family == "Debian"
+
+- name: Add amd64 architecture to dpkg (ARM64 + Debian only)
+  ansible.builtin.command: dpkg --add-architecture amd64
+  register: dpkg_add_arch
+  changed_when: true
+  when:
+    - ansible_architecture == "aarch64"
+    - ansible_os_family == "Debian"
+    - "'amd64' not in dpkg_foreign_archs.stdout"
+
+- name: Refresh apt cache after adding amd64 arch (ARM64 + Debian only)
+  ansible.builtin.apt:
+    update_cache: true
+  when:
+    - ansible_architecture == "aarch64"
+    - ansible_os_family == "Debian"
+    - dpkg_add_arch is changed
+
+- name: Install x86_64 runtime libs for amd64 binary emulation (ARM64 + Debian only)
+  ansible.builtin.apt:
+    name:
+      - libc6:amd64
+      - libstdc++6:amd64
+    state: present
+  when:
+    - ansible_architecture == "aarch64"
+    - ansible_os_family == "Debian"
+
+- name: Ensure /lib64 directory exists (ARM64 only)
+  ansible.builtin.file:
+    path: /lib64
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: ansible_architecture == "aarch64"
+
+- name: Symlink x86_64 dynamic linker to /lib64 (ARM64 only)
+  ansible.builtin.file:
+    src: /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+    dest: /lib64/ld-linux-x86-64.so.2
+    state: link
+    owner: root
+    group: root
+  when: ansible_architecture == "aarch64"
+  when: ansible_os_family == "RedHat"
+
 # ─── ARM64 host: enable amd64 (x86_64) emulation via QEMU binfmt ─────────────
 # Required so `docker compose` can run linux/amd64 images on ARM64 targets
 # (e.g. Apple M-series hosts running Multipass VMs).  No-op on native amd64.
