@@ -106,7 +106,7 @@
     cmd: >-
       python3 -c "import json; keys={
       'OPENCTI_EXTERNAL_SCHEME','OPENCTI_HOST','OPENCTI_PORT','OPENCTI_ADMIN_EMAIL','OPENCTI_ADMIN_PASSWORD',
-      'OPENAEV_EXTERNAL_SCHEME','OPENAEV_HOST','OPENAEV_PORT','OPENAEV_ADMIN_EMAIL','OPENAEV_ADMIN_PASSWORD'};
+      'OPENAEV_EXTERNAL_SCHEME','OPENAEV_HOST','OPENAEV_PORT','OPENAEV_ADMIN_EMAIL','OPENAEV_ADMIN_PASSWORD','OPENAEV_HEALTHCHECK_KEY'};
       out={};
       [out.setdefault(k, v) for line in open('{{ xtm_deploy_dir }}/.env', encoding='utf-8')
       if '=' in line for k, v in [line.rstrip('\n').split('=', 1)] if k in keys];
@@ -129,6 +129,50 @@
       - "OpenAEV URL: {{ xtm_access_values.OPENAEV_EXTERNAL_SCHEME }}://{{ xtm_access_values.OPENAEV_HOST }}:{{ xtm_access_values.OPENAEV_PORT }}"
       - "OpenAEV Email: {{ xtm_access_values.OPENAEV_ADMIN_EMAIL }}"
       - "OpenAEV Password: {{ xtm_access_values.OPENAEV_ADMIN_PASSWORD }}"
+
+- name: Build OpenAEV agent installer base URL
+  ansible.builtin.set_fact:
+    openaev_agent_installer_base_url: >-
+      {{ xtm_access_values.OPENAEV_EXTERNAL_SCHEME }}://{{ xtm_access_values.OPENAEV_HOST }}:{{ xtm_access_values.OPENAEV_PORT }}/api/tenants/{{ openaev_agent_tenant_id }}/agent/installer/openaev
+
+- name: Wait until OpenAEV health endpoint is reachable
+  ansible.builtin.uri:
+    url: >-
+      {{ xtm_access_values.OPENAEV_EXTERNAL_SCHEME }}://{{ xtm_access_values.OPENAEV_HOST }}:{{ xtm_access_values.OPENAEV_PORT }}/api/health?health_access_key={{ xtm_access_values.OPENAEV_HEALTHCHECK_KEY }}
+    method: GET
+    status_code: 200
+    return_content: false
+  register: openaev_health
+  retries: 30
+  delay: 10
+  until: openaev_health.status == 200
+  changed_when: false
+  no_log: true
+
+- name: Check if OpenAEV session agent is already installed for ansible_user
+  ansible.builtin.stat:
+    path: "/home/{{ ansible_user }}/.local/openaev-agent-session/openaev-agent"
+  register: openaev_session_agent
+  become: false
+
+- name: Install OpenAEV session agent
+  ansible.builtin.shell: >-
+    curl -s {{ openaev_agent_installer_base_url }}/linux/session-user | sh
+  args:
+    executable: /bin/bash
+  register: openaev_agent_install
+  changed_when: >-
+    'OpenAEV Agent started.' in (openaev_agent_install.stdout | default(''))
+    or 'Starting install script' in (openaev_agent_install.stdout | default(''))
+  become: false
+  when: not openaev_session_agent.stat.exists
+
+- name: Output OpenAEV agent installer commands by OS
+  ansible.builtin.debug:
+    msg:
+      - "Linux: curl -s {{ openaev_agent_installer_base_url }}/linux/session-user | sh"
+      - "macOS: curl -s {{ openaev_agent_installer_base_url }}/macos/session-user | sh"
+      - "Windows: iex (iwr {{ openaev_agent_installer_base_url }}/windows/session-user).Content"
 
 - name: Fail deploy when docker compose up reports an error
   ansible.builtin.fail:

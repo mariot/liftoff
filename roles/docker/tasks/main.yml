@@ -171,29 +171,9 @@
     state: link
     owner: root
     group: root
-  when: ansible_architecture == "aarch64"
-  when: ansible_os_family == "RedHat"
-
-# ─── ARM64 host: enable amd64 (x86_64) emulation via QEMU binfmt ─────────────
-# Required so `docker compose` can run linux/amd64 images on ARM64 targets
-# (e.g. Apple M-series hosts running Multipass VMs).  No-op on native amd64.
-
-- name: Install QEMU user-static and binfmt-support (ARM64 only)
-  when: ansible_architecture == "aarch64"
-  block:
-    - name: Install preferred ARM64 emulation packages
-      ansible.builtin.apt:
-        name:
-          - qemu-user-static
-          - binfmt-support
-        state: present
-  rescue:
-    - name: Install fallback ARM64 emulation packages
-      ansible.builtin.apt:
-        name:
-          - qemu-user-binfmt
-          - binfmt-support
-        state: present
+  when:
+    - ansible_architecture == "aarch64"
+    - ansible_os_family == "Debian"
 
 - name: Detect qemu-x86_64 interpreter path (ARM64 only)
   ansible.builtin.shell: |

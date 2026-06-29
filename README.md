@@ -71,6 +71,7 @@ liftoff/
 | `openaev_host` | server IP | Hostname or IP used in the OpenAEV public URL |
 | `openaev_port` | `8081` | Public port for OpenAEV |
 | `openaev_admin_email` | `admin@openaev.io` | OpenAEV admin account email |
+| `openaev_agent_tenant_id` | `2cffad3a-0001-4078-b0e2-ef74274022c3` | Tenant ID used for OpenAEV agent installer URLs |
 | `elastic_memory_size` | `4G` | Elasticsearch JVM heap (set to ~50% of RAM) |
 | `minio_root_user` | `opencti` | MinIO root username |
 | `rabbitmq_user` | `xtmrabbit` | RabbitMQ username |
@@ -94,6 +95,11 @@ After a successful deploy, the stack is available at:
 | Elasticsearch | `http://<host>:9200` | Search engine |
 
 Generated credentials are stored in `/opt/xtm/.env` on the server.
+
+OpenAEV agent installer commands are printed at the end of each deploy and are built from the deployed OpenAEV URL:
+- Linux: `curl -s http://<host>:8081/api/tenants/<tenant-id>/agent/installer/openaev/linux/session-user | sh`
+- macOS: `curl -s http://<host>:8081/api/tenants/<tenant-id>/agent/installer/openaev/macos/session-user | sh`
+- Windows (PowerShell): `iex (iwr http://<host>:8081/api/tenants/<tenant-id>/agent/installer/openaev/windows/session-user).Content`
 
 ---
 

@@ -14,6 +14,9 @@ openaev_port: 8081
 openaev_external_scheme: http
 openaev_admin_email: admin@openaev.io
 
+# ─── OpenAEV Agent installer ──────────────────────────────────────────────────
+openaev_agent_tenant_id: 2cffad3a-0001-4078-b0e2-ef74274022c3
+
 # ─── Infrastructure ───────────────────────────────────────────────────────────
 elastic_memory_size: 4G
 minio_root_user: opencti
