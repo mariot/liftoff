@@ -98,6 +98,23 @@
     groups: docker
     append: true
 
+# ─── Extra tools ──────────────────────────────────────────────────────────────
+
+- name: Install extra tools (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name:
+      - magic-wormhole
+    state: present
+    update_cache: false
+  when: ansible_os_family == "Debian"
+
+- name: Install extra tools (RHEL/CentOS/Rocky/Alma)
+  ansible.builtin.dnf:
+    name:
+      - magic-wormhole
+    state: present
+  when: ansible_os_family == "RedHat"
+
 # ─── ARM64 host: enable amd64 (x86_64) emulation via QEMU binfmt ─────────────
 # Required so `docker compose` can run linux/amd64 images on ARM64 targets
 # (e.g. Apple M-series hosts running Multipass VMs).  No-op on native amd64.
