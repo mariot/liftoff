@@ -117,6 +117,12 @@ This project uses direct IP:port access in local testing (no Traefik/Nginx requi
 brew install --cask multipass
 ```
 
+Install `just` for the helper recipes:
+
+```bash
+brew install just
+```
+
 ### 2. Launch a VM
 
 ```bash
@@ -165,6 +171,29 @@ ansible-playbook -i inventory/hosts.yml site.yml
 ```
 
 The first run takes several minutes — Docker images are large. Subsequent runs are fast.
+
+### 5b. Run with `just` (recommended)
+
+From the repository root:
+
+```bash
+# Create VM (if needed) + deploy
+just up
+
+# Deploy and save full Ansible output locally
+just deploy-output output_file=ansible-output.log
+
+# Fetch remote /opt/xtm/.env to local file
+just env-pull env_file=.env.multipass
+```
+
+You can override VM name/resources and key paths, for example:
+
+```bash
+just up vm_name=xtm-test cpus=4 memory=10G disk=50G
+just deploy-output vm_name=xtm-test output_file=ansible-output.log
+just env-pull vm_name=xtm-test env_file=.env.multipass
+```
 
 ### 6. Access the services
 
