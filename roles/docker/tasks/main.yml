@@ -228,4 +228,3 @@
     executable: /bin/bash
   changed_when: false
   when: ansible_architecture == "aarch64"
-

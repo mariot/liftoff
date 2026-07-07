@@ -1,6 +1,17 @@
 services:
 
   ###########################
+  # MAIL TESTING            #
+  ###########################
+
+  mailtrap:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+    restart: always
+
+  ###########################
   # DEPENDENCIES            #
   ###########################
 
@@ -170,7 +181,7 @@ services:
       - RABBITMQ__USERNAME=${RABBITMQ_DEFAULT_USER}
       - RABBITMQ__PASSWORD=${RABBITMQ_DEFAULT_PASS}
       - SMTP__HOSTNAME=${SMTP_HOST}
-      - SMTP__PORT=25
+      - SMTP__PORT=${SMTP_PORT}
       - PROVIDERS__LOCAL__STRATEGY=LocalStrategy
       - APP__HEALTH_ACCESS_KEY=${OPENCTI_HEALTHCHECK_ACCESS_KEY}
       # OpenAEV
@@ -376,7 +387,7 @@ services:
       - MINIO_ENDPOINT=minio
       - MINIO_ACCESS-KEY=${MINIO_ROOT_USER}
       - MINIO_ACCESS-SECRET=${MINIO_ROOT_PASSWORD}
-      - OPENAEV_RABBITMQ_HOSTNAME=rabbitmq
+      - OPENAEV_RABBITMQ_HOSTNAME=${OPENAEV_RABBITMQ_HOSTNAME}
       - OPENAEV_RABBITMQ_USER=${RABBITMQ_DEFAULT_USER}
       - OPENAEV_RABBITMQ_PASS=${RABBITMQ_DEFAULT_PASS}
       - ENGINE_URL=http://elasticsearch:9200

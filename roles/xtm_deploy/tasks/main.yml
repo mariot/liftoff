@@ -18,6 +18,11 @@
     group: docker
     mode: "0640"
 
+- name: Remove docker-compose.override.yml (merged into docker-compose.yml)
+  ansible.builtin.file:
+    path: "{{ xtm_deploy_dir }}/docker-compose.override.yml"
+    state: absent
+
 
 # ─── Secret generation (run only if .env does not yet exist) ─────────────────
 
@@ -81,6 +86,14 @@
         opencti_encryption_key: "{{ _opencti_encryption_key }}"
         openaev_encryption_key: "{{ _openaev_encryption_key }}"
 
+- name: Ensure OPENAEV_RABBITMQ_HOSTNAME exists in existing .env
+  ansible.builtin.lineinfile:
+    path: "{{ xtm_deploy_dir }}/.env"
+    regexp: "^OPENAEV_RABBITMQ_HOSTNAME="
+    line: "OPENAEV_RABBITMQ_HOSTNAME={{ openaev_rabbitmq_hostname }}"
+    insertafter: "^OPENAEV_ADMIN_ENCRYPTION_SALT="
+  when: env_file.stat.exists
+
 # ─── Docker Compose ───────────────────────────────────────────────────────────
 
 - name: Pull latest images
@@ -130,6 +143,13 @@
       - "OpenAEV Email: {{ xtm_access_values.OPENAEV_ADMIN_EMAIL }}"
       - "OpenAEV Password: {{ xtm_access_values.OPENAEV_ADMIN_PASSWORD }}"
 
+- name: Output Mailtrap (Mailpit) access details
+  ansible.builtin.debug:
+    msg:
+      - "Mailtrap Web UI: http://{{ ansible_default_ipv4.address }}:8025"
+      - "Mailtrap SMTP host: {{ smtp_host }}"
+      - "Mailtrap SMTP port: {{ smtp_port }}"
+
 - name: Build OpenAEV agent installer base URL
   ansible.builtin.set_fact:
     openaev_agent_installer_base_url: >-
@@ -143,8 +163,8 @@
     status_code: 200
     return_content: false
   register: openaev_health
-  retries: 30
-  delay: 10
+  retries: 60
+  delay: 30
   until: openaev_health.status == 200
   changed_when: false
   no_log: true
@@ -178,4 +198,3 @@
   ansible.builtin.fail:
     msg: "docker compose up failed (rc={{ compose_up.rc }}). Check service health with: docker compose ps and docker compose logs"
   when: compose_up.rc != 0
-

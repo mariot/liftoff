@@ -13,6 +13,7 @@ openaev_host: "{{ ansible_default_ipv4.address }}"
 openaev_port: 8081
 openaev_external_scheme: http
 openaev_admin_email: admin@openaev.io
+openaev_rabbitmq_hostname: "{{ ansible_default_ipv4.address }}"
 
 # ─── OpenAEV Agent installer ──────────────────────────────────────────────────
 openaev_agent_tenant_id: 2cffad3a-0001-4078-b0e2-ef74274022c3
@@ -24,12 +25,14 @@ rabbitmq_user: xtmrabbit
 postgres_user: xtmpgsql
 
 # ─── SMTP (outgoing mail) ─────────────────────────────────────────────────────
-smtp_host: smtp.gmail.com
-smtp_port: 587
+# Default: local Mailpit container for email testing (web UI on port 8025)
+# Replace with real SMTP credentials for production use.
+smtp_host: mailtrap
+smtp_port: 1025
 smtp_username: ""
 smtp_password: ""
-smtp_auth: "true"
-smtp_ssl_enable: "true"
+smtp_auth: "false"
+smtp_ssl_enable: "false"
 smtp_starttls_enable: "false"
 
 # ─── IMAP (incoming mail for OpenAEV) ────────────────────────────────────────
