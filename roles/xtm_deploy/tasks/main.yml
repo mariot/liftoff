@@ -96,9 +96,22 @@
 
 # ─── Docker Compose ───────────────────────────────────────────────────────────
 
+- name: Validate xtm_deploy_target
+  ansible.builtin.fail:
+    msg: "Invalid xtm_deploy_target '{{ xtm_deploy_target }}'. Valid values: both, opencti, openaev"
+  when: xtm_deploy_target not in ['both', 'opencti', 'openaev']
+
+- name: Compute docker compose service scope
+  ansible.builtin.set_fact:
+    _compose_service_args: >-
+      {{ (xtm_deploy_target == 'opencti') | ternary(
+           _opencti_services | join(' '),
+           (xtm_deploy_target == 'openaev') | ternary(
+             _openaev_services | join(' '), '')) }}
+
 - name: Pull latest images
   ansible.builtin.command:
-    cmd: docker compose pull
+    cmd: "docker compose pull {{ _compose_service_args }}"
     chdir: "{{ xtm_deploy_dir }}"
   register: compose_pull
   changed_when: "'Pulled' in compose_pull.stdout or 'pulled' in compose_pull.stderr"
@@ -108,7 +121,7 @@
 
 - name: Bring up XTM stack
   ansible.builtin.command:
-    cmd: docker compose up -d --remove-orphans
+    cmd: "docker compose up -d --remove-orphans {{ _compose_service_args }}"
     chdir: "{{ xtm_deploy_dir }}"
   register: compose_up
   changed_when: "'Started' in compose_up.stderr or 'Created' in compose_up.stderr"
@@ -133,15 +146,21 @@
     xtm_access_values: "{{ xtm_access_values_raw.stdout | from_json }}"
   no_log: true
 
-- name: Output OpenCTI/OpenAEV access details
+- name: Output OpenCTI access details
   ansible.builtin.debug:
     msg:
       - "OpenCTI URL: {{ xtm_access_values.OPENCTI_EXTERNAL_SCHEME }}://{{ xtm_access_values.OPENCTI_HOST }}:{{ xtm_access_values.OPENCTI_PORT }}"
       - "OpenCTI Email: {{ xtm_access_values.OPENCTI_ADMIN_EMAIL }}"
       - "OpenCTI Password: {{ xtm_access_values.OPENCTI_ADMIN_PASSWORD }}"
+  when: xtm_deploy_target != 'openaev'
+
+- name: Output OpenAEV access details
+  ansible.builtin.debug:
+    msg:
       - "OpenAEV URL: {{ xtm_access_values.OPENAEV_EXTERNAL_SCHEME }}://{{ xtm_access_values.OPENAEV_HOST }}:{{ xtm_access_values.OPENAEV_PORT }}"
       - "OpenAEV Email: {{ xtm_access_values.OPENAEV_ADMIN_EMAIL }}"
       - "OpenAEV Password: {{ xtm_access_values.OPENAEV_ADMIN_PASSWORD }}"
+  when: xtm_deploy_target != 'opencti'
 
 - name: Output Mailtrap (Mailpit) access details
   ansible.builtin.debug:
@@ -150,49 +169,75 @@
       - "Mailtrap SMTP host: {{ smtp_host }}"
       - "Mailtrap SMTP port: {{ smtp_port }}"
 
-- name: Build OpenAEV agent installer base URL
-  ansible.builtin.set_fact:
-    openaev_agent_installer_base_url: >-
-      {{ xtm_access_values.OPENAEV_EXTERNAL_SCHEME }}://{{ xtm_access_values.OPENAEV_HOST }}:{{ xtm_access_values.OPENAEV_PORT }}/api/tenants/{{ openaev_agent_tenant_id }}/agent/installer/openaev
+- name: OpenAEV post-deploy tasks
+  when: xtm_deploy_target != 'opencti'
+  block:
+    - name: Build OpenAEV agent installer base URL
+      ansible.builtin.set_fact:
+        openaev_agent_installer_base_url: >-
+          {{ xtm_access_values.OPENAEV_EXTERNAL_SCHEME }}://{{ xtm_access_values.OPENAEV_HOST }}:{{ xtm_access_values.OPENAEV_PORT }}/api/tenants/{{ openaev_agent_tenant_id }}/agent/installer/openaev
 
-- name: Wait until OpenAEV health endpoint is reachable
-  ansible.builtin.uri:
-    url: >-
-      {{ xtm_access_values.OPENAEV_EXTERNAL_SCHEME }}://{{ xtm_access_values.OPENAEV_HOST }}:{{ xtm_access_values.OPENAEV_PORT }}/api/health?health_access_key={{ xtm_access_values.OPENAEV_HEALTHCHECK_KEY }}
-    method: GET
-    status_code: 200
-    return_content: false
-  register: openaev_health
-  retries: 60
-  delay: 30
-  until: openaev_health.status == 200
-  changed_when: false
-  no_log: true
+    - name: Ensure OpenAEV system-tenant directory marker exists in MinIO
+      # OpenAEV's health check calls MinioService.isTenantPathExists(), which does
+      # statObject("<uuid>/") on the default system-tenant path.  That object must
+      # exist as an explicit S3 key — MinIO never creates it automatically.
+      # The UUID 2cffad3a-0001-4078-b0e2-ef74274022c3 is hardcoded in the compiled
+      # application (TenantContext.class) and is not user-configurable.
+      ansible.builtin.shell: |
+        source <(grep -E "^(MINIO_ROOT_USER|MINIO_ROOT_PASSWORD)=" {{ xtm_deploy_dir }}/.env)
+        HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X PUT \
+          "http://127.0.0.1:9000/openaev/2cffad3a-0001-4078-b0e2-ef74274022c3/" \
+          -u "${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}" \
+          --aws-sigv4 "aws:amz:us-east-1:s3" \
+          --data "")
+        [ "$HTTP" = "200" ]
+      args:
+        executable: /bin/bash
+      register: minio_marker
+      retries: 5
+      delay: 10
+      until: minio_marker.rc == 0
+      changed_when: false
+      no_log: true
 
-- name: Check if OpenAEV session agent is already installed for ansible_user
-  ansible.builtin.stat:
-    path: "/home/{{ ansible_user }}/.local/openaev-agent-session/openaev-agent"
-  register: openaev_session_agent
-  become: false
+    - name: Wait until OpenAEV health endpoint is reachable
+      ansible.builtin.uri:
+        url: >-
+          {{ xtm_access_values.OPENAEV_EXTERNAL_SCHEME }}://{{ xtm_access_values.OPENAEV_HOST }}:{{ xtm_access_values.OPENAEV_PORT }}/api/health?health_access_key={{ xtm_access_values.OPENAEV_HEALTHCHECK_KEY }}
+        method: GET
+        status_code: 200
+        return_content: false
+      register: openaev_health
+      retries: 60
+      delay: 30
+      until: openaev_health.status == 200
+      changed_when: false
+      no_log: true
 
-- name: Install OpenAEV session agent
-  ansible.builtin.shell: >-
-    curl -s {{ openaev_agent_installer_base_url }}/linux/session-user | sh
-  args:
-    executable: /bin/bash
-  register: openaev_agent_install
-  changed_when: >-
-    'OpenAEV Agent started.' in (openaev_agent_install.stdout | default(''))
-    or 'Starting install script' in (openaev_agent_install.stdout | default(''))
-  become: false
-  when: not openaev_session_agent.stat.exists
+    - name: Check if OpenAEV session agent is already installed for ansible_user
+      ansible.builtin.stat:
+        path: "/home/{{ ansible_user }}/.local/openaev-agent-session/openaev-agent"
+      register: openaev_session_agent
+      become: false
 
-- name: Output OpenAEV agent installer commands by OS
-  ansible.builtin.debug:
-    msg:
-      - "Linux: curl -s {{ openaev_agent_installer_base_url }}/linux/session-user | sh"
-      - "macOS: curl -s {{ openaev_agent_installer_base_url }}/macos/session-user | sh"
-      - "Windows: iex (iwr {{ openaev_agent_installer_base_url }}/windows/session-user).Content"
+    - name: Install OpenAEV session agent
+      ansible.builtin.shell: >-
+        curl -s {{ openaev_agent_installer_base_url }}/linux/session-user | sh
+      args:
+        executable: /bin/bash
+      register: openaev_agent_install
+      changed_when: >-
+        'OpenAEV Agent started.' in (openaev_agent_install.stdout | default(''))
+        or 'Starting install script' in (openaev_agent_install.stdout | default(''))
+      become: false
+      when: not openaev_session_agent.stat.exists
+
+    - name: Output OpenAEV agent installer commands by OS
+      ansible.builtin.debug:
+        msg:
+          - "Linux: curl -s {{ openaev_agent_installer_base_url }}/linux/session-user | sh"
+          - "macOS: curl -s {{ openaev_agent_installer_base_url }}/macos/session-user | sh"
+          - "Windows: iex (iwr {{ openaev_agent_installer_base_url }}/windows/session-user).Content"
 
 - name: Fail deploy when docker compose up reports an error
   ansible.builtin.fail:
