@@ -258,6 +258,46 @@ This removes the VM and all its data cleanly.
 
 ---
 
+## Using Mars (OVH VM provisioning) with Liftoff
+
+If your VM is created by **mars** on OVH, you can deploy with Liftoff without Multipass:
+
+```bash
+# Values can come from mars output
+export MARS_VM_NAME=xtm-ovh-test
+export MARS_VM_IP=<ovh-vm-public-ip>
+export MARS_SSH_USER=ubuntu
+export SSH_KEY_FILE=~/.ssh/id_rsa
+
+# Full stack
+just deploy-mars
+
+# OpenCTI only
+just deploy-mars-opencti
+
+# OpenAEV only
+just deploy-mars-openaev
+```
+
+Liftoff generates/updates `inventory/hosts.yml` from these values, then runs `ansible-playbook` on that host.
+
+You can also run an end-to-end flow directly from Liftoff (Terraform in Mars, then Ansible deploy):
+
+```bash
+# 1) Export OpenStack auth vars first (for example by sourcing mars/openrc.sh)
+#    OS_PASSWORD must be set in your shell.
+# 2) Keep/adjust Mars + SSH vars as needed
+export MARS_VM_NAME=xtm-ovh-test
+export MARS_SSH_USER=ubuntu
+export SSH_KEY_FILE=~/.ssh/filigran_github_ssh
+export MARS_DIR=../mars
+export MARS_TFVARS_FILE=secret.tfvars
+
+just mars-up-and-deploy
+```
+
+---
+
 ### Syntax check (no VM needed)
 
 ```bash
