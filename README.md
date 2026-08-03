@@ -284,17 +284,22 @@ Liftoff generates/updates `inventory/hosts.yml` from these values, then runs `an
 You can also run an end-to-end flow directly from Liftoff (Terraform in Mars, then Ansible deploy):
 
 ```bash
-# 1) Export OpenStack auth vars first (for example by sourcing mars/openrc.sh)
-#    OS_PASSWORD must be set in your shell.
+# 1) Store the OpenStack password once in macOS Keychain (recommended)
+security add-internet-password -U -s auth.cloud.ovh.net -a user-5mzQWAqCxYMR -w '<OPENSTACK_PASSWORD>'
+
 # 2) Keep/adjust Mars + SSH vars as needed
 export MARS_VM_NAME=xtm-ovh-test
 export MARS_SSH_USER=ubuntu
 export SSH_KEY_FILE=~/.ssh/filigran_github_ssh
 export MARS_DIR=../mars
 export MARS_TFVARS_FILE=secret.tfvars
+export MARS_OPENRC=../mars/openrc.sh
 
 just mars-up-and-deploy
 ```
+
+`mars-up-and-deploy` sources `openrc.sh`, which now resolves `OS_PASSWORD` in this order: existing env var, `OPENSTACK_PASSWORD_CMD`, macOS Keychain, then interactive prompt.
+It also waits for SSH on the new OVH VM before launching Ansible.
 
 ---
 

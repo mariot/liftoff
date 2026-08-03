@@ -34,6 +34,21 @@ inventory-write-remote host_name="xtm-remote" host_ip="" ssh_user="ubuntu" inven
         > "{{ inventory_file }}"
     @echo "Wrote {{ inventory_file }}"
 
+wait-ssh host_ip="" ssh_user="ubuntu" ssh_key=env_var_or_default("SSH_KEY_FILE", "~/.ssh/id_rsa") timeout="600" interval="5":
+    @test -n "{{ host_ip }}" || (echo "host_ip is required" >&2; exit 1)
+    @DEADLINE=$(( $(date +%s) + {{ timeout }} )); \
+      while true; do \
+        if ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 -i "{{ ssh_key }}" "{{ ssh_user }}@{{ host_ip }}" "echo ready" >/dev/null 2>&1; then \
+          echo "SSH is ready on {{ host_ip }}"; \
+          break; \
+        fi; \
+        if [ "$(date +%s)" -ge "$DEADLINE" ]; then \
+          echo "Timed out waiting for SSH on {{ host_ip }}" >&2; \
+          exit 1; \
+        fi; \
+        sleep "{{ interval }}"; \
+      done
+
 deploy vm_name="xtm-test" inventory_file="inventory/hosts.multipass.yml" ssh_key=env_var_or_default("SSH_KEY_FILE", "~/.ssh/id_rsa"):
     @just inventory-write "{{ vm_name }}" "{{ inventory_file }}" "{{ ssh_key }}"
     ansible-playbook -i "{{ inventory_file }}" site.yml
@@ -64,19 +79,25 @@ mars-inventory-write vm_name=env_var_or_default("MARS_VM_NAME", "xtm-ovh") vm_ip
 
 deploy-mars vm_name=env_var_or_default("MARS_VM_NAME", "xtm-ovh") vm_ip=env_var_or_default("MARS_VM_IP", "") ssh_user=env_var_or_default("MARS_SSH_USER", "ubuntu") inventory_file="inventory/hosts.yml" ssh_key=env_var_or_default("SSH_KEY_FILE", "~/.ssh/id_rsa"):
     @just mars-inventory-write "{{ vm_name }}" "{{ vm_ip }}" "{{ ssh_user }}" "{{ inventory_file }}" "{{ ssh_key }}"
+    @just wait-ssh "{{ vm_ip }}" "{{ ssh_user }}" "{{ ssh_key }}"
     ansible-playbook -i "{{ inventory_file }}" site.yml
 
 deploy-mars-opencti vm_name=env_var_or_default("MARS_VM_NAME", "xtm-ovh") vm_ip=env_var_or_default("MARS_VM_IP", "") ssh_user=env_var_or_default("MARS_SSH_USER", "ubuntu") inventory_file="inventory/hosts.yml" ssh_key=env_var_or_default("SSH_KEY_FILE", "~/.ssh/id_rsa"):
     @just mars-inventory-write "{{ vm_name }}" "{{ vm_ip }}" "{{ ssh_user }}" "{{ inventory_file }}" "{{ ssh_key }}"
+    @just wait-ssh "{{ vm_ip }}" "{{ ssh_user }}" "{{ ssh_key }}"
     ansible-playbook -i "{{ inventory_file }}" site.yml -e xtm_deploy_target=opencti
 
 deploy-mars-openaev vm_name=env_var_or_default("MARS_VM_NAME", "xtm-ovh") vm_ip=env_var_or_default("MARS_VM_IP", "") ssh_user=env_var_or_default("MARS_SSH_USER", "ubuntu") inventory_file="inventory/hosts.yml" ssh_key=env_var_or_default("SSH_KEY_FILE", "~/.ssh/id_rsa"):
     @just mars-inventory-write "{{ vm_name }}" "{{ vm_ip }}" "{{ ssh_user }}" "{{ inventory_file }}" "{{ ssh_key }}"
+    @just wait-ssh "{{ vm_ip }}" "{{ ssh_user }}" "{{ ssh_key }}"
     ansible-playbook -i "{{ inventory_file }}" site.yml -e xtm_deploy_target=openaev
 
-mars-up-and-deploy mars_dir=env_var_or_default("MARS_DIR", "../mars") tfvars_file=env_var_or_default("MARS_TFVARS_FILE", "secret.tfvars") vm_name=env_var_or_default("MARS_VM_NAME", "xtm-ovh") ssh_user=env_var_or_default("MARS_SSH_USER", "ubuntu") ssh_key=env_var_or_default("SSH_KEY_FILE", "~/.ssh/id_rsa") inventory_file="inventory/hosts.yml":
-    @test -n "${OS_PASSWORD:-}" || (echo "OS_PASSWORD is required for Mars/OpenStack authentication" >&2; exit 1)
-    @cd "{{ mars_dir }}" && terraform apply -auto-approve -input=false -var-file="{{ tfvars_file }}" -no-color
-    @VM_IP="$(cd "{{ mars_dir }}" && terraform output -raw openaev_public_ip)"; \
+mars-up-and-deploy mars_dir=env_var_or_default("MARS_DIR", "../mars") mars_openrc=env_var_or_default("MARS_OPENRC", "../mars/openrc.sh") tfvars_file=env_var_or_default("MARS_TFVARS_FILE", "secret.tfvars") vm_name=env_var_or_default("MARS_VM_NAME", "xtm-ovh") ssh_user=env_var_or_default("MARS_SSH_USER", "ubuntu") ssh_key=env_var_or_default("SSH_KEY_FILE", "~/.ssh/id_rsa") inventory_file="inventory/hosts.yml":
+    @test -f "{{ mars_openrc }}" || (echo "Mars openrc file not found: {{ mars_openrc }}" >&2; exit 1)
+    @set -a; . "{{ mars_openrc }}" >/dev/null; set +a; \
+      cd "{{ mars_dir }}"; \
+      terraform apply -auto-approve -input=false -var-file="{{ tfvars_file }}" -no-color; \
+      VM_IP="$(terraform output -raw openaev_public_ip)"; \
       test -n "$VM_IP" || (echo "Could not read openaev_public_ip from Mars terraform output" >&2; exit 1); \
+      cd - >/dev/null; \
       just deploy-mars "{{ vm_name }}" "$VM_IP" "{{ ssh_user }}" "{{ inventory_file }}" "{{ ssh_key }}"
