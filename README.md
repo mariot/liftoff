@@ -36,6 +36,13 @@ vi group_vars/all.yml
 ansible-playbook -i inventory/hosts.yml site.yml
 ```
 
+# Deploy only OpenCTI (skips OpenAEV health-wait and agent install)
+ansible-playbook -i inventory/hosts.yml site.yml -e xtm_deploy_target=opencti
+
+# Deploy only OpenAEV
+ansible-playbook -i inventory/hosts.yml site.yml -e xtm_deploy_target=openaev
+```
+
 On first run the playbook generates all secrets and writes `/opt/xtm/.env` on the server. **Re-runs are safe** — Docker installation and secret generation are both skipped if already done.
 
 ## Project structure
@@ -64,6 +71,7 @@ liftoff/
 
 | Variable | Default | Description |
 |---|---|---|
+| `xtm_deploy_target` | `both` | Which services to deploy: `both` (full stack), `opencti` (OpenCTI + connectors), or `openaev` (OpenAEV + collectors/injectors) |
 | `xtm_deploy_dir` | `/opt/xtm` | Deployment directory on the target server |
 | `opencti_host` | server IP | Hostname or IP used in the OpenCTI public URL |
 | `opencti_port` | `8080` | Public port for OpenCTI |
@@ -177,8 +185,14 @@ The first run takes several minutes — Docker images are large. Subsequent runs
 From the repository root:
 
 ```bash
-# Create VM (if needed) + deploy
+# Create VM (if needed) + deploy full stack
 just up
+
+# Deploy only OpenCTI
+just deploy-opencti
+
+# Deploy only OpenAEV
+just deploy-openaev
 
 # Deploy and save full Ansible output locally
 just deploy-output output_file=ansible-output.log

@@ -1,0 +1,28 @@
+---
+# Service groups for selective deployment (driven by xtm_deploy_target).
+# Infrastructure services (redis, elasticsearch, pgsql, minio, rabbitmq) are
+# pulled in automatically by Docker Compose dependency resolution — they do not
+# need to be listed here.
+
+_opencti_services:
+  - opencti
+  - worker
+  - xtm-composer
+  - connector-export-file-stix
+  - connector-export-file-csv
+  - connector-export-file-txt
+  - connector-import-file-stix
+  - connector-import-document
+  - connector-import-file-yara
+  - connector-analysis
+  - connector-import-external-reference
+  - connector-opencti
+
+_openaev_services:
+  - openaev
+  - collector-mitre-attack
+  - collector-openaev
+  - collector-atomic-red-team
+  - collector-nvd-nist-cve
+  - injector-nmap
+  - injector-nuclei

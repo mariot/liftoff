@@ -145,6 +145,33 @@
     - ansible_os_family == "Debian"
     - dpkg_add_arch is changed
 
+- name: Detect qemu package name (ARM64 + Debian only)
+  # Ubuntu ≤24.04 ships qemu-user-static as a concrete package;
+  # Ubuntu ≥26.04 replaced it with qemu-user-binfmt.
+  ansible.builtin.shell: |
+    if apt-cache show qemu-user-static 2>/dev/null | grep -q "^Filename:"; then
+      echo "qemu-user-static"
+    else
+      echo "qemu-user-binfmt"
+    fi
+  args:
+    executable: /bin/bash
+  register: _qemu_pkg_name
+  changed_when: false
+  when:
+    - ansible_architecture == "aarch64"
+    - ansible_os_family == "Debian"
+
+- name: Install qemu and binfmt-support (ARM64 + Debian only)
+  ansible.builtin.apt:
+    name:
+      - "{{ _qemu_pkg_name.stdout }}"
+      - binfmt-support
+    state: present
+  when:
+    - ansible_architecture == "aarch64"
+    - ansible_os_family == "Debian"
+
 - name: Install x86_64 runtime libs for amd64 binary emulation (ARM64 + Debian only)
   ansible.builtin.apt:
     name:

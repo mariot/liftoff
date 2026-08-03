@@ -2,6 +2,13 @@
 # Deployment directory on the target server
 xtm_deploy_dir: /opt/xtm
 
+# ─── Deploy target ────────────────────────────────────────────────────────────
+# Controls which services to deploy.
+#   both     — full stack: OpenCTI + OpenAEV + all connectors/collectors (default)
+#   opencti  — OpenCTI platform, workers, connectors, and xtm-composer only
+#   openaev  — OpenAEV platform, collectors, and injectors only
+xtm_deploy_target: both
+
 # ─── OpenCTI ──────────────────────────────────────────────────────────────────
 opencti_host: "{{ ansible_default_ipv4.address }}"
 opencti_port: 8080
