@@ -1,6 +1,14 @@
 # Liftoff 🚀
 
-Ansible project that deploys the **XTM stack** — [OpenCTI](https://github.com/OpenCTI-Platform/opencti) (cyber threat intelligence platform) and [OpenAEV](https://github.com/OpenAEV-Platform/openaev) (attack emulation & validation platform) — on a fresh Linux server using Docker Compose.
+Ansible deployment toolkit for the **XTM suite** on Linux hosts:
+- [OpenCTI](https://github.com/OpenCTI-Platform/opencti)
+- [OpenAEV](https://github.com/OpenAEV-Platform/openaev)
+- required connectors/collectors/injectors and infrastructure services
+
+Liftoff is the deployment side of the workflow:
+- use **Multipass** for local VM testing
+- use **Mars (OVH OpenStack)** for cloud VM provisioning
+- deploy the exact same suite with the same playbook
 
 ## What it does
 
@@ -44,6 +52,15 @@ ansible-playbook -i inventory/hosts.yml site.yml -e xtm_deploy_target=openaev
 ```
 
 On first run the playbook generates all secrets and writes `/opt/xtm/.env` on the server. **Re-runs are safe** — Docker installation and secret generation are both skipped if already done.
+
+---
+
+## End-to-end deployment options
+
+Liftoff supports two practical paths:
+
+1. **Multipass path** (local validation on your laptop/workstation)
+2. **Mars path** (OVH VM provisioning + deployment)
 
 ## Project structure
 
@@ -300,6 +317,45 @@ just mars-up-and-deploy
 
 `mars-up-and-deploy` sources `openrc.sh`, which now resolves `OS_PASSWORD` in this order: existing env var, `OPENSTACK_PASSWORD_CMD`, macOS Keychain, then interactive prompt.
 It also waits for SSH on the new OVH VM before launching Ansible.
+
+### Recommended OVH VM size for XTM E2E
+
+Use at least:
+
+- `b3-32` (recommended baseline for stable full-suite end-to-end)
+
+Smaller flavors such as `d2-8` can become unstable under full XTM workload.
+
+---
+
+## How to get `.env` and login credentials
+
+After deployment, Liftoff writes the runtime config and generated credentials to:
+
+- remote: `/opt/xtm/.env`
+
+Fetch it locally:
+
+```bash
+ansible -i inventory/hosts.yml xtm_servers -b \
+  -m ansible.builtin.fetch \
+  -a "src=/opt/xtm/.env dest=.env.xtm flat=true"
+```
+
+Export only login-relevant values:
+
+```bash
+set -a
+source <(grep -E '^(OPENCTI_EXTERNAL_SCHEME|OPENCTI_HOST|OPENCTI_PORT|OPENCTI_ADMIN_EMAIL|OPENCTI_ADMIN_PASSWORD|OPENAEV_EXTERNAL_SCHEME|OPENAEV_HOST|OPENAEV_PORT|OPENAEV_ADMIN_EMAIL|OPENAEV_ADMIN_PASSWORD)=' .env.xtm)
+set +a
+
+export OPENCTI_URL="${OPENCTI_EXTERNAL_SCHEME}://${OPENCTI_HOST}:${OPENCTI_PORT}"
+export OPENAEV_URL="${OPENAEV_EXTERNAL_SCHEME}://${OPENAEV_HOST}:${OPENAEV_PORT}"
+```
+
+Then log in with:
+- OpenCTI: `OPENCTI_URL`, `OPENCTI_ADMIN_EMAIL`, `OPENCTI_ADMIN_PASSWORD`
+- OpenAEV: `OPENAEV_URL`, `OPENAEV_ADMIN_EMAIL`, `OPENAEV_ADMIN_PASSWORD`
 
 ---
 
