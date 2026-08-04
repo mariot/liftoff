@@ -324,7 +324,6 @@ Use at least:
 
 - `b3-32` (recommended baseline for stable full-suite end-to-end)
 
-Smaller flavors such as `d2-8` can become unstable under full XTM workload.
 
 ---
 
