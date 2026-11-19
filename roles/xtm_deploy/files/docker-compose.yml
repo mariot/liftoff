@@ -217,6 +217,12 @@ services:
     deploy:
       mode: replicated
       replicas: 3
+    # one consumer per connector push queue: the default 1024 files runs out with a few
+    # hundred connectors registered (new connectors' bundles then wait forever)
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     restart: always
 
   ###########################
