@@ -121,10 +121,13 @@ After a successful deploy, the stack is available at:
 
 Generated credentials are stored in `/opt/xtm/.env` on the server.
 
-OpenAEV agent installer commands are printed at the end of each deploy and are built from the deployed OpenAEV URL:
-- Linux: `curl -s http://<host>:8081/api/tenants/<tenant-id>/agent/installer/openaev/linux/session-user | sh`
-- macOS: `curl -s http://<host>:8081/api/tenants/<tenant-id>/agent/installer/openaev/macos/session-user | sh`
-- Windows (PowerShell): `iex (iwr http://<host>:8081/api/tenants/<tenant-id>/agent/installer/openaev/windows/session-user).Content`
+The deploy installs a session agent on the server itself. The installer endpoint requires the tenant's
+installer token (OpenAEV UI, Agents page, or `GET /api/tenants/<tenant-id>/agent/installer/openaev/token`
+with the admin token from `/opt/xtm/.env`). Installer commands for other machines are printed at the end
+of each deploy and are built from the deployed OpenAEV URL:
+- Linux: `curl -s -H "Authorization: Bearer <installer token>" http://<host>:8081/api/tenants/<tenant-id>/agent/installer/openaev/linux/session-user | sh`
+- macOS: `curl -s -H "Authorization: Bearer <installer token>" http://<host>:8081/api/tenants/<tenant-id>/agent/installer/openaev/macos/session-user | sh`
+- Windows (PowerShell): `iex (iwr -Headers @{Authorization="Bearer <installer token>"} http://<host>:8081/api/tenants/<tenant-id>/agent/installer/openaev/windows/session-user).Content`
 
 ---
 
