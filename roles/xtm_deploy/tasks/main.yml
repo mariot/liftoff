@@ -132,7 +132,8 @@
     cmd: >-
       python3 -c "import json; keys={
       'OPENCTI_EXTERNAL_SCHEME','OPENCTI_HOST','OPENCTI_PORT','OPENCTI_ADMIN_EMAIL','OPENCTI_ADMIN_PASSWORD',
-      'OPENAEV_EXTERNAL_SCHEME','OPENAEV_HOST','OPENAEV_PORT','OPENAEV_ADMIN_EMAIL','OPENAEV_ADMIN_PASSWORD','OPENAEV_HEALTHCHECK_KEY'};
+      'OPENAEV_EXTERNAL_SCHEME','OPENAEV_HOST','OPENAEV_PORT','OPENAEV_ADMIN_EMAIL','OPENAEV_ADMIN_PASSWORD','OPENAEV_HEALTHCHECK_KEY',
+      'OPENAEV_ADMIN_TOKEN'};
       out={};
       [out.setdefault(k, v) for line in open('{{ xtm_deploy_dir }}/.env', encoding='utf-8')
       if '=' in line for k, v in [line.rstrip('\n').split('=', 1)] if k in keys];
@@ -170,7 +171,9 @@
       - "Mailtrap SMTP port: {{ smtp_port }}"
 
 - name: OpenAEV post-deploy tasks
-  when: xtm_deploy_target != 'opencti'
+  # Skipped when compose up failed: its waits would retry against containers that do not
+  # exist and hide the real error, reported by the last task of the role
+  when: xtm_deploy_target != 'opencti' and compose_up.rc == 0
   block:
     - name: Build OpenAEV agent installer base URL
       ansible.builtin.set_fact:
@@ -220,24 +223,42 @@
       register: openaev_session_agent
       become: false
 
+    # The installer endpoint requires authentication: the install command carries the
+    # tenant's agent service-account token, which the admin token can read
+    - name: Fetch OpenAEV agent installer token
+      ansible.builtin.uri:
+        url: "{{ openaev_agent_installer_base_url }}/token"
+        headers:
+          Authorization: "Bearer {{ xtm_access_values.OPENAEV_ADMIN_TOKEN }}"
+        return_content: true
+      register: openaev_agent_installer_token
+      changed_when: false
+      no_log: true
+      when: not openaev_session_agent.stat.exists
+
     - name: Install OpenAEV session agent
       ansible.builtin.shell: >-
-        curl -s {{ openaev_agent_installer_base_url }}/linux/session-user | sh
+        curl -sf -H "Authorization: Bearer ${OPENAEV_INSTALLER_TOKEN}"
+        {{ openaev_agent_installer_base_url }}/linux/session-user | sh
       args:
         executable: /bin/bash
+      environment:
+        OPENAEV_INSTALLER_TOKEN: "{{ openaev_agent_installer_token.content | trim }}"
       register: openaev_agent_install
+      # The installer script reports its progress on stderr
       changed_when: >-
-        'OpenAEV Agent started.' in (openaev_agent_install.stdout | default(''))
-        or 'Starting install script' in (openaev_agent_install.stdout | default(''))
+        'OpenAEV Agent started.' in (openaev_agent_install.stdout | default('')) ~ (openaev_agent_install.stderr | default(''))
+        or 'Starting install script' in (openaev_agent_install.stdout | default('')) ~ (openaev_agent_install.stderr | default(''))
       become: false
       when: not openaev_session_agent.stat.exists
 
     - name: Output OpenAEV agent installer commands by OS
       ansible.builtin.debug:
         msg:
-          - "Linux: curl -s {{ openaev_agent_installer_base_url }}/linux/session-user | sh"
-          - "macOS: curl -s {{ openaev_agent_installer_base_url }}/macos/session-user | sh"
-          - "Windows: iex (iwr {{ openaev_agent_installer_base_url }}/windows/session-user).Content"
+          - "Installer token: GET {{ openaev_agent_installer_base_url }}/token with the admin token, or copy it from the OpenAEV UI (Agents)"
+          - "Linux: curl -s -H \"Authorization: Bearer <installer token>\" {{ openaev_agent_installer_base_url }}/linux/session-user | sh"
+          - "macOS: curl -s -H \"Authorization: Bearer <installer token>\" {{ openaev_agent_installer_base_url }}/macos/session-user | sh"
+          - "Windows: iex (iwr -Headers @{Authorization=\"Bearer <installer token>\"} {{ openaev_agent_installer_base_url }}/windows/session-user).Content"
 
 - name: Fail deploy when docker compose up reports an error
   ansible.builtin.fail:

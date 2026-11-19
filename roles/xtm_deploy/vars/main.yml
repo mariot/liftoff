@@ -2,9 +2,11 @@
 # Service groups for selective deployment (driven by xtm_deploy_target).
 # Infrastructure services (redis, elasticsearch, pgsql, minio, rabbitmq) are
 # pulled in automatically by Docker Compose dependency resolution — they do not
-# need to be listed here.
+# need to be listed here. Mailtrap (mailpit) is no dependency of anything but both
+# platforms send their mail to it (smtp_host), so each group lists it.
 
 _opencti_services:
+  - mailtrap
   - opencti
   - worker
   - xtm-composer
@@ -19,6 +21,7 @@ _opencti_services:
   - connector-opencti
 
 _openaev_services:
+  - mailtrap
   - openaev
   - collector-mitre-attack
   - collector-openaev
