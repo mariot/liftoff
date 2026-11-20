@@ -3,3 +3,4 @@
 inventory/hosts.yml
 !inventory/hosts.yml.example
 .idea/
+inventory/hosts.staticfire*.yml
